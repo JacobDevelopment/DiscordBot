@@ -1,0 +1,86 @@
+import groovy.json.JsonSlurper
+
+plugins {
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'nu.studer.jooq' version '5.2.1'
+    id 'java'
+    id 'application'
+}
+sourceCompatibility = 15
+
+repositories {
+    jcenter()
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    /** @JDA **/
+    implementation 'net.dv8tion:JDA:4.2.0_229'
+
+    /** @CACHE **/
+    implementation 'net.jodah:expiringmap:0.5.9'
+
+    /** @LOGGING **/
+    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+
+    /** @DATABASE **/
+    implementation 'org.postgresql:postgresql:42.2.18'
+    implementation 'com.zaxxer:HikariCP:4.0.2'
+
+    /** MISC **/
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.7'
+
+    /** @JOOQ * */
+    implementation 'org.jooq:jooq:3.14.7'
+    jooqGenerator 'org.postgresql:postgresql:42.2.18'
+}
+
+def jsonSlurper = new JsonSlurper()
+def data = jsonSlurper.parse(new File("config.json"))
+
+if (data == null)
+    return
+
+def db_user = data["database"]["username"]
+def db_pass = data["database"]["password"]
+
+jooq {
+    version = '3.14.4'
+    configurations {
+        main {
+            generateSchemaSourceOnCompilation = false
+            generationTool {
+                logging = org.jooq.meta.jaxb.Logging.WARN
+                jdbc {
+                    url = 'jdbc:postgresql://localhost:5432/postgres'
+                    user = db_user
+                    password = db_pass
+                    driver = 'org.postgresql.Driver'
+                }
+                generator {
+                    name = 'org.jooq.codegen.DefaultGenerator'
+                    database {
+                        name = 'org.jooq.meta.postgres.PostgresDatabase'
+                        inputSchema = 'public'
+                        includes = '.*'
+                        excludes = ''
+                    }
+                    generate {
+                        deprecated = false
+                        records = true
+                        immutablePojos = true
+                        fluentSetters = true
+                    }
+                    target {
+                        packageName = ''
+                        directory = "src/main/java/jooq"
+                    }
+                    strategy.name = "org.jooq.codegen.DefaultGeneratorStrategy"
+                }
+            }
+        }
+    }
+}
+
+compileJava.options.encoding = 'UTF-8'
